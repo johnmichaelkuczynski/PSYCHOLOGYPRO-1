@@ -351,6 +351,13 @@ export default function Home() {
                   onDiscussionToggle={() => setIsDiscussionOpen(true)}
                   onNewAnalysis={handleNewAnalysis}
                 />
+                
+                {/* TEMP DEBUG: Show current analysis ID */}
+                {currentAnalysisId && (
+                  <div style={{position: 'fixed', top: '10px', right: '10px', background: 'red', color: 'white', padding: '5px', zIndex: 1000}}>
+                    Analysis ID: {currentAnalysisId.slice(0, 8)}...
+                  </div>
+                )}
               </div>
             </div>
           </div>
