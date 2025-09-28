@@ -106,7 +106,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
     }
   };
 
-  // Load persisted analysis on component mount
+  // Load persisted analysis on component mount and when credit status changes
   useEffect(() => {
     if (analysisId) {
       const persisted = getPersistedAnalysis(analysisId);
@@ -138,7 +138,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
         }
       }
     }
-  }, [analysisId]);
+  }, [analysisId, canAccessFullResults]); // Re-run when credit status changes
 
   useEffect(() => {
     if (streamData) {
@@ -323,13 +323,25 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
           {/* Text Summary */}
           {summary && (
             <div className="bg-blue-50 border-l-4 border-primary p-4 rounded-r-md mb-6" data-testid="text-summary">
-              <h4 className="font-medium text-gray-900 mb-2">Text Summary & Categorization</h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-gray-900">Text Summary & Categorization</h4>
+                {canAccessFullResults && fullAnalysisResults && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    ✨ Full Access
+                  </Badge>
+                )}
+                {!canAccessFullResults && (
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    🔒 30% Preview
+                  </Badge>
+                )}
+              </div>
               <div className="text-sm text-gray-700 leading-relaxed">
-                <div className={`streaming-text ${summary ? 'complete' : ''}`}>
+                <div className={`streaming-text ${summary ? 'complete' : ''} transition-all duration-500 ease-in-out`}>
                   {canAccessFullResults ? summary : truncateToPercentage(summary, displayPercentage)}
                 </div>
                 {!canAccessFullResults && summary && (
-                  <div className="mt-4">
+                  <div className="mt-4 transition-all duration-500 ease-in-out">
                     <PaywallBanner 
                       variant="inline"
                       analysisType="summary"
@@ -391,11 +403,11 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 mb-2">{q.question}</p>
                           <div className="text-sm text-gray-700 leading-relaxed">
-                            <div className={`streaming-text ${q.isComplete ? 'complete' : ''}`}>
+                            <div className={`streaming-text ${q.isComplete ? 'complete' : ''} transition-all duration-500 ease-in-out`}>
                               {canAccessFullResults ? q.response : truncateToPercentage(q.response, displayPercentage)}
                             </div>
                             {!canAccessFullResults && q.response && (
-                              <div className="mt-4">
+                              <div className="mt-4 transition-all duration-500 ease-in-out">
                                 <PaywallBanner 
                                   variant="inline"
                                   analysisType="detailed analysis"

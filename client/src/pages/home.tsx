@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
+import { useUpgradeNotification } from "@/hooks/use-upgrade-notification";
 import type { LLMProviderType, AnalysisTypeType, Analysis } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
+  useUpgradeNotification(); // Initialize upgrade notification system
   const [selectedFunction, setSelectedFunction] = useState<AnalysisTypeType>("cognitive");
   const [selectedLLM, setSelectedLLM] = useState<LLMProviderType>("zhi1");
   const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);

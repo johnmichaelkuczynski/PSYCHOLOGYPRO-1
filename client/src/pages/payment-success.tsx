@@ -4,10 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Home, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUpgradeNotification } from "@/hooks/use-upgrade-notification";
 
 export default function PaymentSuccess() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { markAsUpgraded } = useUpgradeNotification();
   const [paymentDetails, setPaymentDetails] = useState<{
     paymentIntent?: string;
     amount?: string;
@@ -25,13 +27,16 @@ export default function PaymentSuccess() {
         amount: amount || undefined
       });
       
+      // Mark user as just upgraded for notification system
+      markAsUpgraded();
+      
       toast({
         title: "Payment Successful! 🎉",
         description: "Your credits have been added to your account.",
         duration: 5000,
       });
     }
-  }, [toast]);
+  }, [toast, markAsUpgraded]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950">
