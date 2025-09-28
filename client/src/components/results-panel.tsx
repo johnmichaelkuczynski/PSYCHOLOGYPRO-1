@@ -346,6 +346,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
                       variant="inline"
                       analysisType="summary"
                       className="text-center"
+                      analysisId={analysisId || undefined}
                     />
                   </div>
                 )}
@@ -373,6 +374,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
                         variant="minimal"
                         analysisType="live analysis"
                         className="text-center"
+                        analysisId={analysisId || undefined}
                       />
                     </div>
                   )}
@@ -412,6 +414,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
                                   variant="inline"
                                   analysisType="detailed analysis"
                                   className="text-center"
+                                  analysisId={analysisId || undefined}
                                 />
                               </div>
                             )}

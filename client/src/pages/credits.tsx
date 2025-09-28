@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 export default function Credits() {
   const [, setLocation] = useLocation();
   const [selectedProvider, setSelectedProvider] = useState<LLMProviderType>("zhi1");
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
 
   const { data: userCredits = 0 } = useQuery<number>({
     queryKey: ["/api/user/credits"],
@@ -18,8 +19,18 @@ export default function Credits() {
   });
 
   const handlePurchase = (amount: number) => {
-    setLocation(`/checkout?amount=${amount}&provider=${selectedProvider}`);
+    const url = `/checkout?amount=${amount}&provider=${selectedProvider}${analysisId ? `&analysisId=${analysisId}` : ''}`;
+    setLocation(url);
   };
+
+  // Extract analysis ID from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('analysisId');
+    if (id) {
+      setAnalysisId(id);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">

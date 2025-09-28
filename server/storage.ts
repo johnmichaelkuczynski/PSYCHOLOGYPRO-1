@@ -1,4 +1,4 @@
-import { type Analysis, type Discussion, type InsertAnalysis, type InsertDiscussion, type User, type InsertUser, type Transaction, type InsertTransaction, analyses, discussions, users, transactions } from "../shared/schema";
+import { type Analysis, type Discussion, type InsertAnalysis, type InsertDiscussion, type User, type InsertUser, type Transaction, type InsertTransaction, type PendingCredit, type InsertPendingCredit, analyses, discussions, users, transactions, pendingCredits } from "../shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -39,6 +39,12 @@ export interface IStorage {
   // Credit consumption
   consumeUserCredits(userId: number, creditsUsed: number): Promise<void>;
   checkUserCredits(userId: number, requiredCredits: number): Promise<boolean>;
+  
+  // Pending credit operations
+  createPendingCredit(pendingCredit: InsertPendingCredit): Promise<PendingCredit>;
+  getPendingCreditByToken(claimToken: string): Promise<PendingCredit | undefined>;
+  claimPendingCredit(claimToken: string, userId: number): Promise<PendingCredit | undefined>;
+  getPendingCreditsByPaymentIntent(paymentIntentId: string): Promise<PendingCredit[]>;
 }
 
 // Referenced from javascript_database integration
@@ -234,6 +240,59 @@ export class DatabaseStorage implements IStorage {
     }
     
     return (user.credits || 0) >= requiredCredits;
+  }
+  
+  // Pending credit operations
+  async createPendingCredit(insertPendingCredit: InsertPendingCredit): Promise<PendingCredit> {
+    const [pendingCredit] = await db
+      .insert(pendingCredits)
+      .values(insertPendingCredit)
+      .returning();
+    return pendingCredit;
+  }
+
+  async getPendingCreditByToken(claimToken: string): Promise<PendingCredit | undefined> {
+    const [pendingCredit] = await db
+      .select()
+      .from(pendingCredits)
+      .where(eq(pendingCredits.claimToken, claimToken));
+    return pendingCredit || undefined;
+  }
+
+  async claimPendingCredit(claimToken: string, userId: number): Promise<PendingCredit | undefined> {
+    // Get the pending credit
+    const pendingCredit = await this.getPendingCreditByToken(claimToken);
+    if (!pendingCredit || pendingCredit.claimed) {
+      return undefined;
+    }
+
+    // Mark as claimed and associate with user
+    const [updatedCredit] = await db
+      .update(pendingCredits)
+      .set({
+        claimed: true,
+        claimedByUserId: userId,
+      })
+      .where(eq(pendingCredits.claimToken, claimToken))
+      .returning();
+
+    // Add credits to user account
+    if (updatedCredit) {
+      const user = await this.getUserById(userId);
+      if (user) {
+        const newCredits = (user.credits || 0) + updatedCredit.credits;
+        await this.updateUserCredits(userId, newCredits);
+      }
+    }
+
+    return updatedCredit || undefined;
+  }
+
+  async getPendingCreditsByPaymentIntent(paymentIntentId: string): Promise<PendingCredit[]> {
+    return await db
+      .select()
+      .from(pendingCredits)
+      .where(eq(pendingCredits.stripePaymentIntentId, paymentIntentId));
   }
 }
 

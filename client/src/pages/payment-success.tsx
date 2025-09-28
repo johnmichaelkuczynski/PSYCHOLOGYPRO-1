@@ -20,6 +20,7 @@ export default function PaymentSuccess() {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentIntent = urlParams.get('payment_intent');
     const amount = urlParams.get('payment_intent_client_secret');
+    const analysisId = urlParams.get('analysisId');
     
     if (paymentIntent) {
       setPaymentDetails({
@@ -32,11 +33,18 @@ export default function PaymentSuccess() {
       
       toast({
         title: "Payment Successful! 🎉",
-        description: "Your credits have been added to your account.",
+        description: "Your credits have been added to your account. You now have full access!",
         duration: 5000,
       });
+
+      // Redirect back to analysis if analysis ID is provided
+      if (analysisId) {
+        setTimeout(() => {
+          setLocation(`/?analysisId=${analysisId}`);
+        }, 3000);
+      }
     }
-  }, [toast, markAsUpgraded]);
+  }, [toast, markAsUpgraded, setLocation]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950">
@@ -65,19 +73,30 @@ export default function PaymentSuccess() {
           </div>
 
           <div className="space-y-3">
-            <Link href="/" className="block">
-              <Button className="w-full" data-testid="button-home">
-                <Home className="h-4 w-4 mr-2" />
-                Start Analysis
-              </Button>
-            </Link>
-            
-            <Link href="/credits" className="block">
-              <Button variant="outline" className="w-full" data-testid="button-credits">
-                <CreditCard className="h-4 w-4 mr-2" />
-                View Credits
-              </Button>
-            </Link>
+            {(() => {
+              const urlParams = new URLSearchParams(window.location.search);
+              const analysisId = urlParams.get('analysisId');
+              
+              return (
+                <>
+                  <Button 
+                    onClick={() => setLocation(analysisId ? `/?analysisId=${analysisId}` : '/')}
+                    className="w-full" 
+                    data-testid="button-home"
+                  >
+                    <Home className="h-4 w-4 mr-2" />
+                    {analysisId ? 'Return to Your Analysis' : 'Start Analysis'}
+                  </Button>
+                  
+                  <Link href="/credits" className="block">
+                    <Button variant="outline" className="w-full" data-testid="button-credits">
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      View Credits
+                    </Button>
+                  </Link>
+                </>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>

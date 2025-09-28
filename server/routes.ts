@@ -10,7 +10,7 @@ import { storage } from "./storage";
 import { LLMService } from "./services/llm-service";
 import { FileService } from "./services/file-service";
 import { StreamingService } from "./services/streaming-service";
-import { insertAnalysisSchema, insertDiscussionSchema, insertUserSchema, insertTransactionSchema, type User as DbUser } from "../shared/schema";
+import { insertAnalysisSchema, insertDiscussionSchema, insertUserSchema, insertTransactionSchema, insertPendingCreditSchema, type User as DbUser } from "../shared/schema";
 import Stripe from "stripe";
 import { PRICING_TIERS } from "../client/src/data/pricing";
 
@@ -410,8 +410,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("User:", req.user);
     
     try {
-      const { amount, llmProvider } = req.body;
-      console.log("Extracted amount:", amount, "llmProvider:", llmProvider);
+      const { amount, llmProvider, analysisId } = req.body;
+      console.log("Extracted amount:", amount, "llmProvider:", llmProvider, "analysisId:", analysisId);
       
       if (!amount || !PRICING_TIERS.find(tier => tier.amount === amount)) {
         console.log("Amount validation failed. Available amounts:", PRICING_TIERS.map(t => t.amount));
@@ -425,6 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         metadata: {
           userId: req.user?.id?.toString() || 'anonymous',
           llmProvider: llmProvider || 'zhi1',
+          analysisId: analysisId || 'none',
         },
       });
       
@@ -459,17 +460,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (event.type === 'payment_intent.succeeded') {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const userId = parseInt(paymentIntent.metadata.userId);
+        const userIdStr = paymentIntent.metadata.userId;
+        const userId = userIdStr !== 'anonymous' ? parseInt(userIdStr) : null;
         const amount = paymentIntent.amount / 100; // Convert from cents
         const llmProvider = paymentIntent.metadata.llmProvider as 'zhi1' | 'zhi2' | 'zhi3' | 'zhi4';
+        const analysisId = paymentIntent.metadata.analysisId !== 'none' ? paymentIntent.metadata.analysisId : null;
         
-        if (userId && !isNaN(userId)) {
-          // Find the pricing tier
-          const tier = PRICING_TIERS.find(t => t.amount === amount);
-          if (tier && tier.credits[llmProvider]) {
-            const credits = tier.credits[llmProvider];
-            
-            // Create transaction record
+        // Find the pricing tier
+        const tier = PRICING_TIERS.find(t => t.amount === amount);
+        if (tier && tier.credits[llmProvider]) {
+          const credits = tier.credits[llmProvider];
+          
+          if (userId && !isNaN(userId)) {
+            // User is logged in - add credits directly
             await storage.createTransaction({
               userId,
               amount,
@@ -477,15 +480,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
               stripePaymentIntentId: paymentIntent.id,
             });
             
-            // Update user credits
             const user = await storage.getUserById(userId);
             if (user) {
               const newCredits = (user.credits || 0) + credits;
               await storage.updateUserCredits(userId, newCredits);
             }
             
-            // Update transaction status
             await storage.updateTransactionStatus(paymentIntent.id, 'completed');
+          } else {
+            // Anonymous purchase - store as pending credits
+            const claimToken = `claim_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            await storage.createPendingCredit({
+              stripePaymentIntentId: paymentIntent.id,
+              amount,
+              credits,
+              llmProvider,
+              claimToken,
+            });
+            
+            console.log(`Stored pending credits for anonymous purchase. Claim token: ${claimToken}`);
           }
         }
       }
@@ -494,6 +508,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Webhook error:', error);
       res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
+  // Credit claiming endpoint for anonymous purchases
+  app.post("/api/claim-credits", async (req, res) => {
+    try {
+      const { claimToken } = req.body;
+      
+      if (!claimToken) {
+        return res.status(400).json({ error: "Claim token is required" });
+      }
+      
+      // User must be logged in to claim credits
+      if (!req.user) {
+        return res.status(401).json({ error: "Must be logged in to claim credits" });
+      }
+      
+      const claimedCredit = await storage.claimPendingCredit(claimToken, req.user.id);
+      
+      if (!claimedCredit) {
+        return res.status(404).json({ error: "Invalid or already claimed token" });
+      }
+      
+      res.json({ 
+        success: true, 
+        credits: claimedCredit.credits,
+        message: `Successfully claimed ${claimedCredit.credits} credits!`
+      });
+    } catch (error: any) {
+      console.error('Credit claiming error:', error);
+      res.status(500).json({ error: 'Failed to claim credits' });
     }
   });
 

@@ -21,6 +21,7 @@ interface PaywallBannerProps {
   showDismiss?: boolean;
   analysisType?: string;
   variant?: "minimal" | "inline";
+  analysisId?: string; // Pass current analysis ID for post-payment return
 }
 
 export default function PaywallBanner({ 
@@ -28,7 +29,8 @@ export default function PaywallBanner({
   onDismiss, 
   showDismiss = false,
   analysisType = "analysis",
-  variant = "minimal"
+  variant = "minimal",
+  analysisId
 }: PaywallBannerProps) {
   const [isDismissed, setIsDismissed] = useState(false);
   const { isAuthenticated, credits } = useUserCredits();
@@ -61,7 +63,7 @@ export default function PaywallBanner({
               </p>
             </div>
           </div>
-          <Link href="/credits">
+          <Link href={`/credits${analysisId ? `?analysisId=${analysisId}` : ''}`}>
             <Button size="sm" data-testid="button-upgrade-minimal">
               Upgrade
             </Button>
@@ -85,14 +87,14 @@ export default function PaywallBanner({
           </p>
           <div className="flex justify-center space-x-2">
             {!isAuthenticated && (
-              <Link href="/credits">
+              <Link href={`/credits${analysisId ? `?analysisId=${analysisId}` : ''}`}>
                 <Button variant="outline" size="sm" data-testid="button-register-inline">
                   <Users className="h-3 w-3 mr-1" />
                   Register Free
                 </Button>
               </Link>
             )}
-            <Link href="/credits">
+            <Link href={`/credits${analysisId ? `?analysisId=${analysisId}` : ''}`}>
               <Button size="sm" data-testid="button-upgrade-inline">
                 <Crown className="h-3 w-3 mr-1" />
                 {isAuthenticated ? "Buy Credits" : "Get Started"}

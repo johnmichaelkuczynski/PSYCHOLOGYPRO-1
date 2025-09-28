@@ -19,7 +19,7 @@ if (!stripePublicKey) {
 }
 const stripePromise = loadStripe(stripePublicKey);
 
-const CheckoutForm = ({ amount, llmProvider }: { amount: number; llmProvider: LLMProviderType }) => {
+const CheckoutForm = ({ amount, llmProvider, analysisId }: { amount: number; llmProvider: LLMProviderType; analysisId?: string }) => {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
@@ -38,7 +38,7 @@ const CheckoutForm = ({ amount, llmProvider }: { amount: number; llmProvider: LL
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/payment-success`,
+        return_url: `${window.location.origin}/payment-success${analysisId ? `?analysisId=${analysisId}` : ''}`,
       },
     });
 
@@ -53,8 +53,8 @@ const CheckoutForm = ({ amount, llmProvider }: { amount: number; llmProvider: LL
         title: "Payment Successful",
         description: "Thank you for your purchase! Credits will be added to your account.",
       });
-      // Redirect to home page
-      setLocation("/");
+      // Redirect to analysis or home page
+      setLocation(analysisId ? `/?analysisId=${analysisId}` : "/");
     }
 
     setIsProcessing(false);
@@ -130,6 +130,7 @@ export default function Checkout() {
   const [clientSecret, setClientSecret] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
   const [llmProvider, setLlmProvider] = useState<LLMProviderType | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [urlParamsLoaded, setUrlParamsLoaded] = useState(false);
   const { toast } = useToast();
 
@@ -138,6 +139,7 @@ export default function Checkout() {
     const urlParams = new URLSearchParams(window.location.search);
     const amountParam = urlParams.get('amount');
     const providerParam = urlParams.get('provider');
+    const analysisIdParam = urlParams.get('analysisId');
     
     const parsedAmount = amountParam ? parseInt(amountParam) : 5;
     const parsedProvider = (providerParam && ["zhi1", "zhi2", "zhi3", "zhi4"].includes(providerParam)) 
@@ -146,6 +148,9 @@ export default function Checkout() {
     
     setAmount(parsedAmount);
     setLlmProvider(parsedProvider);
+    if (analysisIdParam) {
+      setAnalysisId(analysisIdParam);
+    }
     setUrlParamsLoaded(true);
   }, []);
 
@@ -160,7 +165,7 @@ export default function Checkout() {
     console.log('Amount:', amount, 'Provider:', llmProvider);
     console.log('URL loaded:', urlParamsLoaded);
     
-    apiRequest("POST", "/api/create-payment-intent", { amount, llmProvider })
+    apiRequest("POST", "/api/create-payment-intent", { amount, llmProvider, analysisId })
       .then(async (response) => {
         console.log('=== FRONTEND: Payment intent response ===');
         console.log('Response received:', response);
@@ -194,7 +199,7 @@ export default function Checkout() {
   // Make SURE to wrap the form in <Elements> which provides the stripe context.
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>
-      <CheckoutForm amount={amount} llmProvider={llmProvider} />
+      <CheckoutForm amount={amount} llmProvider={llmProvider} analysisId={analysisId || undefined} />
     </Elements>
   );
 }
