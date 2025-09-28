@@ -35,7 +35,7 @@ Preferred communication style: Simple, everyday language.
 - No current authentication implementation - prepared for future user management
 
 ## Analysis Processing Architecture
-- **Multi-LLM Integration**: Support for four AI providers (aliased as ZHI 1-4 for OpenAI, Anthropic, DeepSeek, Perplexity)
+- **Multi-LLM Integration**: Support for four AI providers (aliased as ZHI 1-4)
 - **Batch Processing**: Questions sent in batches of 5 to manage token limits and response quality
 - **Streaming Service**: Real-time analysis progress with pause/resume functionality
 - **Discussion System**: Post-analysis dialogue capability for result refinement and contestation
@@ -51,10 +51,10 @@ Preferred communication style: Simple, everyday language.
 # External Dependencies
 
 ## Third-Party Services
-- **OpenAI API**: Primary language model provider (ZHI 1)
-- **Anthropic Claude**: Secondary language model provider (ZHI 2) 
-- **DeepSeek API**: Third language model provider (ZHI 3)
-- **Perplexity API**: Fourth language model provider (ZHI 4)
+- **ZHI 1 API**: Primary language model provider
+- **ZHI 2 API**: Secondary language model provider
+- **ZHI 3 API**: Third language model provider
+- **ZHI 4 API**: Fourth language model provider
 
 ## Database
 - **Neon PostgreSQL**: Serverless PostgreSQL database for production deployment
@@ -77,8 +77,8 @@ Preferred communication style: Simple, everyday language.
 
 # Recent Changes (September 28, 2025)
 
-## Critical Bug Fix - ZHI 4 (Perplexity) Streaming Issue Resolution
-✅ **ZHI 4 Garbled Text Issue Resolved**: Fixed critical streaming decoder bug that was causing Perplexity (ZHI 4) to produce fragmented, nonsensical text output during analysis
+## Critical Bug Fix - ZHI 4 Streaming Issue Resolution
+✅ **ZHI 4 Garbled Text Issue Resolved**: Fixed critical streaming decoder bug that was causing ZHI 4 to produce fragmented, nonsensical text output during analysis
 
 ✅ **Stream Decoder Enhancement**: Implemented proper UTF-8 streaming support with `{ stream: true }` parameter to handle partial character sequences across network chunks
 
@@ -88,14 +88,14 @@ Preferred communication style: Simple, everyday language.
 
 ✅ **Production Security**: Added development-only debug logging to prevent user content exposure in production environments while maintaining debugging capability for development
 
-✅ **End-to-End Validation**: Comprehensive testing confirms ZHI 4 (Perplexity) now produces coherent, well-formatted analysis responses that stream properly in real-time, achieving parity with other providers
+✅ **End-to-End Validation**: Comprehensive testing confirms ZHI 4 now produces coherent, well-formatted analysis responses that stream properly in real-time, achieving parity with other providers
 
 # Previous Changes (September 27, 2025)
 
 ## Latest Critical Fixes - LLM Provider and User Experience Improvements 
-✅ **ZHI 4 (Perplexity) Fixed**: Updated invalid model name from 'llama-3.1-sonar-large-128k-online' to valid 'sonar-pro' - Perplexity API now working properly
+✅ **ZHI 4 Fixed**: Updated invalid model name from 'llama-3.1-sonar-large-128k-online' to valid 'sonar-pro' - ZHI 4 API now working properly
 
-✅ **ZHI 2 (Anthropic) Debugging**: Added debugging infrastructure to diagnose "No content received" errors - configuration verified as correct per current API specifications
+✅ **ZHI 2 Debugging**: Added debugging infrastructure to diagnose "No content received" errors - configuration verified as correct per current API specifications
 
 ✅ **Save Button Enhancement**: Implemented visual saving indicator with spinner animation and "Saving..." text providing immediate user feedback during save operations
 

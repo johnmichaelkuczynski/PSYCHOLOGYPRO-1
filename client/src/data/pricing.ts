@@ -16,10 +16,10 @@ export const PRICING_TIERS: PricingTier[] = [
   {
     amount: 5,
     credits: {
-      zhi1: 4275000, // OpenAI
-      zhi2: 106840,  // Anthropic
-      zhi3: 702000,  // DeepSeek
-      zhi4: 6410255, // Perplexity
+      zhi1: 4275000,
+      zhi2: 106840,
+      zhi3: 702000,
+      zhi4: 6410255,
     },
   },
   {
@@ -96,7 +96,7 @@ export const LLM_INFO: Record<LLMProviderType, LLMInfo> = {
     ],
     demerits: [
       "Noticeably slower than the others",
-      "Less nuanced on subtle philosophy/literature than Anthropic",
+      "Less nuanced on subtle philosophy/literature than ZHI 2",
       "Output can feel mechanical if pushed beyond bulk processing",
     ],
   },
@@ -108,7 +108,7 @@ export const LLM_INFO: Record<LLMProviderType, LLMInfo> = {
       "Sometimes surprisingly concise and pointed",
     ],
     demerits: [
-      "Quality varies — can be shallow compared to Anthropic/OpenAI",
+      "Quality varies — can be shallow compared to other providers",
       "Weak on sustained long-form consistency",
     ],
   },

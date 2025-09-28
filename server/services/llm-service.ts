@@ -48,7 +48,7 @@ export class LLMService {
 
       // Configure request based on provider
       switch (provider) {
-        case "zhi1": // OpenAI
+        case "zhi1":
           headers = {
             "Authorization": `Bearer ${config.apiKey}`,
             "Content-Type": "application/json",
@@ -61,7 +61,7 @@ export class LLMService {
           endpoint = `${config.baseUrl}/chat/completions`;
           break;
 
-        case "zhi2": // Anthropic
+        case "zhi2":
           headers = {
             "x-api-key": config.apiKey,
             "Content-Type": "application/json",
@@ -76,7 +76,7 @@ export class LLMService {
           endpoint = `${config.baseUrl}/v1/messages`;
           break;
 
-        case "zhi3": // DeepSeek
+        case "zhi3":
           headers = {
             "Authorization": `Bearer ${config.apiKey}`,
             "Content-Type": "application/json",
@@ -89,7 +89,7 @@ export class LLMService {
           endpoint = `${config.baseUrl}/chat/completions`;
           break;
 
-        case "zhi4": // Perplexity
+        case "zhi4":
           headers = {
             "Authorization": `Bearer ${config.apiKey}`,
             "Content-Type": "application/json",
@@ -150,16 +150,16 @@ export class LLMService {
               try {
                 const parsed = JSON.parse(data);
                 
-                // Debug logging for Perplexity responses (development only)
+                // Debug logging for ZHI 4 responses (development only)
                 if (provider === 'zhi4' && process.env.NODE_ENV === 'development') {
-                  console.log('🔍 Perplexity raw response chunk:', JSON.stringify(parsed, null, 2));
+                  console.log('🔍 ZHI 4 raw response chunk:', JSON.stringify(parsed, null, 2));
                 }
                 
                 const content = this.extractContentFromResponse(parsed, provider);
                 
                 // Debug logging for extracted content (development only)
                 if (provider === 'zhi4' && content && process.env.NODE_ENV === 'development') {
-                  console.log('✅ Perplexity extracted content:', JSON.stringify(content));
+                  console.log('✅ ZHI 4 extracted content:', JSON.stringify(content));
                 }
                 
                 if (content) {
@@ -167,9 +167,9 @@ export class LLMService {
                   yield content;
                 }
               } catch (error) {
-                // Enhanced error logging for Perplexity
+                // Enhanced error logging for ZHI 4
                 if (provider === 'zhi4') {
-                  console.error('❌ Perplexity JSON parse error:', error, 'Raw data:', data);
+                  console.error('❌ ZHI 4 JSON parse error:', error, 'Raw data:', data);
                 }
                 continue;
               }
@@ -187,13 +187,13 @@ export class LLMService {
 
   private extractContentFromResponse(parsed: any, provider: LLMProviderType): string | null {
     switch (provider) {
-      case "zhi1": // OpenAI
-      case "zhi3": // DeepSeek  
-      case "zhi4": // Perplexity
+      case "zhi1":
+      case "zhi3":
+      case "zhi4":
         return parsed.choices?.[0]?.delta?.content || null;
         
-      case "zhi2": // Anthropic
-        // Anthropic has different response format
+      case "zhi2":
+        // ZHI 2 has different response format
         if (parsed.type === "content_block_delta") {
           return parsed.delta?.text || null;
         }
