@@ -83,18 +83,20 @@ export class StreamingService {
       throw new Error("Analysis not found");
     }
 
-    // Check if user has sufficient credits (only for authenticated users)
+    // Check if user has sufficient credits and consume if they do (freemium model)
+    // Always run full analysis, but only consume credits if user can afford it
     if (analysis.userId) {
       const requiredCredits = this.getRequiredCredits(analysis.type);
       const hasCredits = await this.storage.checkUserCredits(analysis.userId, requiredCredits);
       
-      if (!hasCredits) {
-        await this.storage.updateAnalysisStatus(analysisId, "error");
-        throw new Error("Insufficient credits for this analysis");
+      // Only consume credits if user has them (paid users)
+      // Free users still get analysis but with limited display on frontend
+      if (hasCredits) {
+        await this.storage.consumeUserCredits(analysis.userId, requiredCredits);
       }
       
-      // Consume credits upfront
-      await this.storage.consumeUserCredits(analysis.userId, requiredCredits);
+      // Note: Analysis continues regardless of credit status
+      // Frontend will limit display to 30% for users without sufficient credits
     }
 
     await this.storage.updateAnalysisStatus(analysisId, "streaming");

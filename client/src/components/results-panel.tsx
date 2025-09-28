@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useStreaming } from "@/hooks/use-streaming";
 import { apiRequest } from "@/lib/queryClient";
+import { useUserCredits, getResultDisplayPercentage, truncateToPercentage } from "@/utils/user-credits";
+import { persistAnalysisResults, getPersistedAnalysis } from "@/utils/analysis-persistence";
+import PaywallBanner from "@/components/paywall-banner";
 
 // Strip markdown formatting from text
 function stripMarkdown(text: string): string {
@@ -67,8 +70,16 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
   const [delayProgress, setDelayProgress] = useState(0);
   const [streamingContent, setStreamingContent] = useState<{[key: number]: string}>({});
   const [isStopped, setIsStopped] = useState(false);
+  const [fullAnalysisResults, setFullAnalysisResults] = useState<any>(null);
+  const [analysisMetadata, setAnalysisMetadata] = useState<{
+    textContent?: string;
+    analysisType?: string; 
+    llmProvider?: string;
+  }>({});
   
   const { isStreaming, streamData, error } = useStreaming(analysisId, isPaused);
+  const { canAccessFullResults } = useUserCredits();
+  const displayPercentage = getResultDisplayPercentage(canAccessFullResults);
 
   const handleClearAnalysis = () => {
     setBatches([]);
@@ -77,6 +88,8 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
     setCurrentBatch(1);
     setDelayProgress(0);
     setIsStopped(false);
+    setFullAnalysisResults(null);
+    setAnalysisMetadata({});
     onNewAnalysis();
   };
 
@@ -93,28 +106,72 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
     }
   };
 
+  // Load persisted analysis on component mount
+  useEffect(() => {
+    if (analysisId) {
+      const persisted = getPersistedAnalysis(analysisId);
+      if (persisted) {
+        setFullAnalysisResults(persisted.results);
+        setAnalysisMetadata({
+          textContent: persisted.textContent,
+          analysisType: persisted.analysisType,
+          llmProvider: persisted.llmProvider
+        });
+        
+        // If analysis is complete, restore the display
+        if (persisted.results && persisted.results.completedAt) {
+          setSummary(stripMarkdown(persisted.results.summary || ""));
+          if (persisted.results.batches) {
+            const restoredBatches = persisted.results.batches.map((batchResponse: string, index: number) => ({
+              batchNumber: index + 1,
+              questions: [{
+                question: `Batch ${index + 1} - Raw LLM Response`,
+                response: stripMarkdown(batchResponse),
+                score: 0,
+                isComplete: true
+              }],
+              isComplete: true,
+              timestamp: new Date(persisted.results.completedAt).toLocaleTimeString()
+            }));
+            setBatches(restoredBatches);
+          }
+        }
+      }
+    }
+  }, [analysisId]);
+
   useEffect(() => {
     if (streamData) {
       if (streamData.type === "summary") {
-        setSummary(stripMarkdown(streamData.content || ""));
+        const fullSummary = stripMarkdown(streamData.content || "");
+        setSummary(fullSummary);
+        
+        // Store in full results for persistence
+        setFullAnalysisResults(prev => ({
+          ...prev,
+          summary: fullSummary
+        }));
       } else if (streamData.type === "raw_stream") {
         // Show pure raw streaming content immediately - NO FILTERING
         if (streamData.batchNumber && streamData.rawContent) {
+          const fullContent = stripMarkdown(streamData.rawContent!);
           setStreamingContent(prev => ({
             ...prev,
-            [streamData.batchNumber!]: stripMarkdown(streamData.rawContent!)
+            [streamData.batchNumber!]: fullContent
           }));
           setCurrentBatch(streamData.batchNumber);
         }
       } else if (streamData.type === "batch_complete") {
         // When batch completes, keep the final raw response visible
         if (streamData.batchNumber && streamData.finalRawResponse) {
+          const fullResponse = stripMarkdown(streamData.finalRawResponse!);
+          
           setBatches(prev => {
             const batchData: BatchData = {
               batchNumber: streamData.batchNumber!,
               questions: [{ 
                 question: `Batch ${streamData.batchNumber} - Raw LLM Response`,
-                response: stripMarkdown(streamData.finalRawResponse!),
+                response: fullResponse,
                 score: 0,
                 isComplete: true 
               }],
@@ -123,12 +180,36 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
             };
             return [...prev, batchData];
           });
+          
+          // Store in full results for persistence
+          setFullAnalysisResults(prev => ({
+            ...prev,
+            batches: [...(prev?.batches || []), fullResponse]
+          }));
+          
           // Clear streaming content when batch is complete
           setStreamingContent(prev => {
             const newState = { ...prev };
             delete newState[streamData.batchNumber!];
             return newState;
           });
+        }
+      } else if (streamData.type === "complete") {
+        // Analysis completed - persist full results
+        if (analysisId && fullAnalysisResults) {
+          const completeResults = {
+            ...fullAnalysisResults,
+            completedAt: new Date().toISOString()
+          };
+          setFullAnalysisResults(completeResults);
+          
+          persistAnalysisResults(
+            analysisId,
+            completeResults,
+            analysisMetadata.textContent || "",
+            analysisMetadata.analysisType || "cognitive",
+            analysisMetadata.llmProvider || "zhi1"
+          );
         }
       } else if (streamData.type === "delay") {
         if (streamData.progress !== undefined) {
@@ -138,7 +219,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
         setIsStopped(true);
       }
     }
-  }, [streamData]);
+  }, [streamData, analysisId, fullAnalysisResults, analysisMetadata]);
 
   const getScoreVariant = (score: number) => {
     if (score >= 80) return "high";
@@ -245,8 +326,17 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
               <h4 className="font-medium text-gray-900 mb-2">Text Summary & Categorization</h4>
               <div className="text-sm text-gray-700 leading-relaxed">
                 <div className={`streaming-text ${summary ? 'complete' : ''}`}>
-                  {summary}
+                  {canAccessFullResults ? summary : truncateToPercentage(summary, displayPercentage)}
                 </div>
+                {!canAccessFullResults && summary && (
+                  <div className="mt-4">
+                    <PaywallBanner 
+                      variant="inline"
+                      analysisType="summary"
+                      className="text-center"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -263,8 +353,17 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
               <div className="question-card">
                 <div className="text-sm text-gray-700 leading-relaxed">
                   <div className="streaming-text font-mono whitespace-pre-wrap">
-                    {content}
+                    {canAccessFullResults ? content : truncateToPercentage(content, displayPercentage)}
                   </div>
+                  {!canAccessFullResults && content && (
+                    <div className="mt-4">
+                      <PaywallBanner 
+                        variant="minimal"
+                        analysisType="live analysis"
+                        className="text-center"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -293,8 +392,17 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
                           <p className="text-sm font-medium text-gray-900 mb-2">{q.question}</p>
                           <div className="text-sm text-gray-700 leading-relaxed">
                             <div className={`streaming-text ${q.isComplete ? 'complete' : ''}`}>
-                              {q.response}
+                              {canAccessFullResults ? q.response : truncateToPercentage(q.response, displayPercentage)}
                             </div>
+                            {!canAccessFullResults && q.response && (
+                              <div className="mt-4">
+                                <PaywallBanner 
+                                  variant="inline"
+                                  analysisType="detailed analysis"
+                                  className="text-center"
+                                />
+                              </div>
+                            )}
                           </div>
                           <div className="mt-3 flex items-center space-x-4">
                             {q.score > 0 && (
