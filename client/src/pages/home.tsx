@@ -72,6 +72,8 @@ export default function Home() {
     if (!storedAnalysisId && !urlAnalysisId) {
       console.log('ℹ️ NO ANALYSIS ID FOUND - STAYING ON NEW ANALYSIS STATE');
     }
+    
+    console.log('📋 FINAL ANALYSIS ID STATE:', { currentAnalysisId });
   }, [search, currentAnalysisId]);
 
   const handleNewAnalysis = () => {
