@@ -19,10 +19,6 @@ localPort = 41557
 externalPort = 3002
 
 [[ports]]
-localPort = 41833
-externalPort = 3001
-
-[[ports]]
 localPort = 46069
 externalPort = 3000
 
@@ -52,3 +48,4 @@ waitForPort = 5000
 
 [agent]
 integrations = ["perplexity_v0:1.0.0", "javascript_anthropic:1.0.0", "javascript_object_storage:1.0.0", "javascript_database:1.0.0", "javascript_stripe:1.0.0"]
+expertMode = true
