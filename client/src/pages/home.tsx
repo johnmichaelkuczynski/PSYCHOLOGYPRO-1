@@ -21,7 +21,7 @@ export default function Home() {
   const [selectedFunction, setSelectedFunction] = useState<AnalysisTypeType>("cognitive");
   const [selectedLLM, setSelectedLLM] = useState<LLMProviderType>("zhi1");
   const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
-  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>("2df3bf32-8f9a-4d68-8d84-388ce8d6aad9"); // TEMP: Testing payment flow
   const [resetKey, setResetKey] = useState(0);
   const [showSavedAnalyses, setShowSavedAnalyses] = useState(false);
   const [showUserHistory, setShowUserHistory] = useState(false);
