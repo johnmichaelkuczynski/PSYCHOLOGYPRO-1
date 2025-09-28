@@ -64,8 +64,10 @@ export default function PaymentSuccess() {
 
         // Redirect back to analysis if analysis ID is provided
         if (analysisId) {
+          // Store analysisId in localStorage for reliable retrieval
+          localStorage.setItem('post_payment_analysis_id', analysisId);
           setTimeout(() => {
-            setLocation(`/?analysisId=${analysisId}`);
+            setLocation('/');
           }, 3000);
         }
       }

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearch } from "wouter";
 import { Brain, Settings, HelpCircle, Bookmark, Loader2, CreditCard } from "lucide-react";
 import Sidebar from "@/components/sidebar";
 import LLMSelector from "@/components/llm-selector";
@@ -16,6 +17,7 @@ import type { LLMProviderType, AnalysisTypeType, Analysis } from "@shared/schema
 export default function Home() {
   const { toast } = useToast();
   useUpgradeNotification(); // Initialize upgrade notification system
+  const search = useSearch();
   const [selectedFunction, setSelectedFunction] = useState<AnalysisTypeType>("cognitive");
   const [selectedLLM, setSelectedLLM] = useState<LLMProviderType>("zhi1");
   const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
@@ -35,6 +37,42 @@ export default function Home() {
     queryKey: ["/api/analyses/mine"],
     enabled: showUserHistory,
   });
+
+  // Handle analysisId from URL parameters and localStorage (for post-payment redirects)
+  useEffect(() => {
+    console.log('🔍 CHECKING FOR ANALYSIS ID:', { 
+      currentAnalysisId, 
+      localStorage_value: localStorage.getItem('post_payment_analysis_id'),
+      search_param: search 
+    });
+
+    // Check localStorage first (from payment success page)
+    const storedAnalysisId = localStorage.getItem('post_payment_analysis_id');
+    if (storedAnalysisId && storedAnalysisId !== currentAnalysisId) {
+      console.log('✅ SETTING ANALYSIS ID FROM LOCALSTORAGE:', storedAnalysisId);
+      setCurrentAnalysisId(storedAnalysisId);
+      // Clear it after use to prevent repeated loads
+      localStorage.removeItem('post_payment_analysis_id');
+      console.log('🧹 CLEARED LOCALSTORAGE AFTER USE');
+      return;
+    }
+
+    // Fallback to URL parameters if available
+    const searchParams = new URLSearchParams(search);
+    const analysisId = searchParams.get('analysisId');
+    const windowParams = new URLSearchParams(window.location.search);
+    const windowAnalysisId = windowParams.get('analysisId');
+    
+    const urlAnalysisId = windowAnalysisId || analysisId;
+    if (urlAnalysisId && urlAnalysisId !== currentAnalysisId) {
+      console.log('✅ SETTING ANALYSIS ID FROM URL PARAMS:', urlAnalysisId);
+      setCurrentAnalysisId(urlAnalysisId);
+    }
+
+    if (!storedAnalysisId && !urlAnalysisId) {
+      console.log('ℹ️ NO ANALYSIS ID FOUND - STAYING ON NEW ANALYSIS STATE');
+    }
+  }, [search, currentAnalysisId]);
 
   const handleNewAnalysis = () => {
     setCurrentAnalysisId(null);
