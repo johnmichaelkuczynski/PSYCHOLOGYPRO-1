@@ -19,6 +19,17 @@ export class StreamingService {
     private storage: IStorage
   ) {}
 
+  // Server-side content truncation for freemium users
+  private truncateToPercentage(text: string, percentage: number): string {
+    if (percentage >= 100) return text;
+    
+    const words = text.split(/\s+/);
+    const targetLength = Math.floor(words.length * (percentage / 100));
+    const truncated = words.slice(0, Math.max(1, targetLength)).join(' ');
+    
+    return truncated + (truncated.length < text.length ? '...' : '');
+  }
+
   async startAnalysis(analysisId: string): Promise<void> {
     // Start the analysis processing in the background
     this.processAnalysis(analysisId).catch(error => {
@@ -83,20 +94,21 @@ export class StreamingService {
       throw new Error("Analysis not found");
     }
 
-    // Check if user has sufficient credits and consume if they do (freemium model)
-    // Always run full analysis, but only consume credits if user can afford it
+    // Check if user has sufficient credits for full analysis (freemium model)
+    let hasFullAccess = false;
     if (analysis.userId) {
       const requiredCredits = this.getRequiredCredits(analysis.type);
       const hasCredits = await this.storage.checkUserCredits(analysis.userId, requiredCredits);
       
-      // Only consume credits if user has them (paid users)
-      // Free users still get analysis but with limited display on frontend
       if (hasCredits) {
+        // Consume credits for paid users with full access
         await this.storage.consumeUserCredits(analysis.userId, requiredCredits);
+        hasFullAccess = true;
       }
-      
-      // Note: Analysis continues regardless of credit status
-      // Frontend will limit display to 30% for users without sufficient credits
+      // Free users get 30% preview - analysis runs but results are truncated server-side
+    } else {
+      // Anonymous users get 30% preview
+      hasFullAccess = false;
     }
 
     await this.storage.updateAnalysisStatus(analysisId, "streaming");
@@ -105,31 +117,31 @@ export class StreamingService {
       // Process the analysis and ensure results are saved
       switch (analysis.type) {
         case "cognitive":
-          await this.processCognitiveAnalysis(analysis);
+          await this.processCognitiveAnalysis(analysis, hasFullAccess);
           break;
         case "comprehensive-cognitive":
-          await this.processComprehensiveCognitiveAnalysis(analysis);
+          await this.processComprehensiveCognitiveAnalysis(analysis, hasFullAccess);
           break;
         case "microcognitive":
-          await this.processMicrocognitiveAnalysis(analysis);
+          await this.processMicrocognitiveAnalysis(analysis, hasFullAccess);
           break;
         case "psychological":
-          await this.processPsychologicalAnalysis(analysis);
+          await this.processPsychologicalAnalysis(analysis, hasFullAccess);
           break;
         case "comprehensive-psychological":
-          await this.processComprehensivePsychologicalAnalysis(analysis);
+          await this.processComprehensivePsychologicalAnalysis(analysis, hasFullAccess);
           break;
         case "micropsychological":
-          await this.processMicropsychologicalAnalysis(analysis);
+          await this.processMicropsychologicalAnalysis(analysis, hasFullAccess);
           break;
         case "psychopathological":
-          await this.processPsychopathologicalAnalysis(analysis);
+          await this.processPsychopathologicalAnalysis(analysis, hasFullAccess);
           break;
         case "comprehensive-psychopathological":
-          await this.processComprehensivePsychopathologicalAnalysis(analysis);
+          await this.processComprehensivePsychopathologicalAnalysis(analysis, hasFullAccess);
           break;
         case "micropsychopathological":
-          await this.processMicropsychopathologicalAnalysis(analysis);
+          await this.processMicropsychopathologicalAnalysis(analysis, hasFullAccess);
           break;
         default:
           throw new Error(`Analysis type ${analysis.type} not implemented`);
@@ -163,9 +175,9 @@ export class StreamingService {
     }
   }
 
-  private async processCognitiveAnalysis(analysis: Analysis): Promise<void> {
+  private async processCognitiveAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5
     const questions = this.llmService.getCognitiveQuestions();
@@ -183,7 +195,7 @@ export class StreamingService {
       const batchNumber = i + 1;
 
       // Process each question in the batch
-      const batchResponse = await this.processBatch(analysis, batch, batchNumber);
+      const batchResponse = await this.processBatch(analysis, batch, batchNumber, hasFullAccess);
       batchResults.push(batchResponse);
 
       // Check if analysis was stopped before delay
@@ -198,7 +210,7 @@ export class StreamingService {
       }
     }
 
-    // Step 3: Save the complete analysis results
+    // Step 3: Save the complete analysis results (always save full results)
     const finalResults = {
       summary,
       batches: batchResults,
@@ -210,7 +222,7 @@ export class StreamingService {
     await this.storage.updateAnalysisResults(analysis.id, finalResults);
   }
 
-  private async streamSummary(analysis: Analysis): Promise<string> {
+  private async streamSummary(analysis: Analysis, hasFullAccess: boolean = false): Promise<string> {
     const summaryPrompt = `First, summarize this text and categorize it:\n\n${analysis.textContent}`;
     
     let summary = "";
@@ -223,9 +235,11 @@ export class StreamingService {
         (chunk) => {
           summary += chunk;
           hasContent = true;
+          // Apply server-side truncation based on user access level
+          const displayContent = hasFullAccess ? summary : this.truncateToPercentage(summary, 30);
           this.broadcastToStream(analysis.id, {
             type: "summary",
-            content: summary
+            content: displayContent
           });
         }
       )) {
@@ -245,7 +259,7 @@ export class StreamingService {
     return summary;
   }
 
-  private async processBatch(analysis: Analysis, questions: string[], batchNumber: number): Promise<string> {
+  private async processBatch(analysis: Analysis, questions: string[], batchNumber: number, hasFullAccess: boolean = false): Promise<string> {
     const prompt = this.llmService.createCognitivePrompt(
       analysis.textContent,
       questions,
@@ -263,11 +277,12 @@ export class StreamingService {
           fullResponse += chunk;
           hasContent = true;
           
-          // Stream the raw response immediately as it comes in - PURE PASSTHROUGH
+          // Apply server-side truncation for streaming content
+          const displayContent = hasFullAccess ? fullResponse : this.truncateToPercentage(fullResponse, 30);
           this.broadcastToStream(analysis.id, {
             type: "raw_stream",
             batchNumber,
-            rawContent: fullResponse,
+            rawContent: displayContent,
             timestamp: new Date().toLocaleTimeString("en-US", {
               hour: "numeric",
               minute: "2-digit", 
@@ -290,11 +305,12 @@ export class StreamingService {
       throw new Error(`Batch ${batchNumber} processing failed: ${errorMessage}`);
     }
 
-    // Mark batch as complete - NO PARSING, JUST RAW FINAL RESPONSE
+    // Mark batch as complete - Apply truncation for display but save full response
+    const displayResponse = hasFullAccess ? fullResponse : this.truncateToPercentage(fullResponse, 30);
     this.broadcastToStream(analysis.id, {
       type: "batch_complete", 
       batchNumber,
-      finalRawResponse: fullResponse,
+      finalRawResponse: displayResponse,
       isComplete: true,
       timestamp: new Date().toLocaleTimeString("en-US", {
         hour: "numeric",
@@ -427,14 +443,14 @@ export class StreamingService {
   }
 
   // Process Comprehensive Cognitive Analysis
-  private async processComprehensiveCognitiveAnalysis(analysis: Analysis): Promise<void> {
+  private async processComprehensiveCognitiveAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5
     const questions = this.llmService.getComprehensiveCognitiveQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processBatchesWithResults(analysis, batches);
+    const batchResults = await this.processBatchesWithResults(analysis, batches, hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -449,14 +465,14 @@ export class StreamingService {
   }
 
   // Process Psychological Analysis  
-  private async processPsychologicalAnalysis(analysis: Analysis): Promise<void> {
+  private async processPsychologicalAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5
     const questions = this.llmService.getPsychologicalQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processBatchesWithResults(analysis, batches);
+    const batchResults = await this.processBatchesWithResults(analysis, batches, hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -471,14 +487,14 @@ export class StreamingService {
   }
 
   // Process Comprehensive Psychological Analysis
-  private async processComprehensivePsychologicalAnalysis(analysis: Analysis): Promise<void> {
+  private async processComprehensivePsychologicalAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5
     const questions = this.llmService.getComprehensivePsychologicalQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processBatchesWithResults(analysis, batches);
+    const batchResults = await this.processBatchesWithResults(analysis, batches, hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -493,14 +509,14 @@ export class StreamingService {
   }
 
   // Process Psychopathological Analysis
-  private async processPsychopathologicalAnalysis(analysis: Analysis): Promise<void> {
+  private async processPsychopathologicalAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5
     const questions = this.llmService.getPsychopathologicalQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processBatchesWithResults(analysis, batches);
+    const batchResults = await this.processBatchesWithResults(analysis, batches, hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -515,14 +531,14 @@ export class StreamingService {
   }
 
   // Process Comprehensive Psychopathological Analysis
-  private async processComprehensivePsychopathologicalAnalysis(analysis: Analysis): Promise<void> {
+  private async processComprehensivePsychopathologicalAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5
     const questions = this.llmService.getComprehensivePsychopathologicalQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processBatchesWithResults(analysis, batches);
+    const batchResults = await this.processBatchesWithResults(analysis, batches, hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -560,7 +576,7 @@ export class StreamingService {
   }
 
   // Shared batch processing logic that returns results
-  private async processBatchesWithResults(analysis: Analysis, batches: string[][]): Promise<string[]> {
+  private async processBatchesWithResults(analysis: Analysis, batches: string[][], hasFullAccess: boolean = false): Promise<string[]> {
     const batchResults: string[] = [];
     
     for (let i = 0; i < batches.length; i++) {
@@ -571,7 +587,7 @@ export class StreamingService {
 
       const batch = batches[i];
       const batchNumber = i + 1;
-      const batchResponse = await this.processBatch(analysis, batch, batchNumber);
+      const batchResponse = await this.processBatch(analysis, batch, batchNumber, hasFullAccess);
       batchResults.push(batchResponse);
 
       const delayStream = this.activeStreams.get(analysis.id);
@@ -588,14 +604,14 @@ export class StreamingService {
   }
 
   // Process Micro Cognitive Analysis (ultra-fast, concise responses)
-  private async processMicrocognitiveAnalysis(analysis: Analysis): Promise<void> {
+  private async processMicrocognitiveAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5 with micro prompts
     const questions = this.llmService.getMicrocognitiveQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processMicroBatchesWithResults(analysis, batches, 'microcognitive');
+    const batchResults = await this.processMicroBatchesWithResults(analysis, batches, 'microcognitive', hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -610,14 +626,14 @@ export class StreamingService {
   }
 
   // Process Micro Psychological Analysis (ultra-fast, concise responses)
-  private async processMicropsychologicalAnalysis(analysis: Analysis): Promise<void> {
+  private async processMicropsychologicalAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5 with micro prompts
     const questions = this.llmService.getMicropsychologicalQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processMicroBatchesWithResults(analysis, batches, 'micropsychological');
+    const batchResults = await this.processMicroBatchesWithResults(analysis, batches, 'micropsychological', hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -632,14 +648,14 @@ export class StreamingService {
   }
 
   // Process Micro Psychopathological Analysis (ultra-fast, concise responses)
-  private async processMicropsychopathologicalAnalysis(analysis: Analysis): Promise<void> {
+  private async processMicropsychopathologicalAnalysis(analysis: Analysis, hasFullAccess: boolean = false): Promise<void> {
     // Step 1: Generate and stream summary
-    const summary = await this.streamSummary(analysis);
+    const summary = await this.streamSummary(analysis, hasFullAccess);
 
     // Step 2: Process questions in batches of 5 with micro prompts
     const questions = this.llmService.getMicropsychopathologicalQuestions();
     const batches = this.createBatches(questions, 5);
-    const batchResults = await this.processMicroBatchesWithResults(analysis, batches, 'micropsychopathological');
+    const batchResults = await this.processMicroBatchesWithResults(analysis, batches, 'micropsychopathological', hasFullAccess);
 
     // Step 3: Save the complete analysis results
     const finalResults = {
@@ -654,7 +670,7 @@ export class StreamingService {
   }
 
   // Shared micro batch processing logic that returns results with micro prompts
-  private async processMicroBatchesWithResults(analysis: Analysis, batches: string[][], microType: 'microcognitive' | 'micropsychological' | 'micropsychopathological'): Promise<string[]> {
+  private async processMicroBatchesWithResults(analysis: Analysis, batches: string[][], microType: 'microcognitive' | 'micropsychological' | 'micropsychopathological', hasFullAccess: boolean = false): Promise<string[]> {
     const batchResults: string[] = [];
     
     for (let i = 0; i < batches.length; i++) {
@@ -665,7 +681,7 @@ export class StreamingService {
 
       const batch = batches[i];
       const batchNumber = i + 1;
-      const batchResponse = await this.processMicroBatch(analysis, batch, batchNumber, microType);
+      const batchResponse = await this.processMicroBatch(analysis, batch, batchNumber, microType, hasFullAccess);
       batchResults.push(batchResponse);
 
       const delayStream = this.activeStreams.get(analysis.id);
@@ -682,7 +698,7 @@ export class StreamingService {
   }
 
   // Process micro batch using appropriate micro prompt
-  private async processMicroBatch(analysis: Analysis, questions: string[], batchNumber: number, microType: 'microcognitive' | 'micropsychological' | 'micropsychopathological'): Promise<string> {
+  private async processMicroBatch(analysis: Analysis, questions: string[], batchNumber: number, microType: 'microcognitive' | 'micropsychological' | 'micropsychopathological', hasFullAccess: boolean = false): Promise<string> {
     let prompt: string;
     
     // Use appropriate micro prompt based on type
@@ -723,11 +739,12 @@ export class StreamingService {
           fullResponse += chunk;
           hasContent = true;
           
-          // Stream the raw response immediately as it comes in - PURE PASSTHROUGH
+          // Apply server-side truncation for streaming content
+          const displayContent = hasFullAccess ? fullResponse : this.truncateToPercentage(fullResponse, 30);
           this.broadcastToStream(analysis.id, {
             type: "raw_stream",
             batchNumber,
-            rawContent: fullResponse,
+            rawContent: displayContent,
             timestamp: new Date().toLocaleTimeString("en-US", {
               hour: "numeric",
               minute: "2-digit", 
@@ -750,11 +767,12 @@ export class StreamingService {
       throw new Error(`Micro batch ${batchNumber} processing failed: ${errorMessage}`);
     }
 
-    // Mark batch as complete - NO PARSING, JUST RAW FINAL RESPONSE
+    // Mark batch as complete - Apply truncation for display but save full response
+    const displayResponse = hasFullAccess ? fullResponse : this.truncateToPercentage(fullResponse, 30);
     this.broadcastToStream(analysis.id, {
       type: "batch_complete", 
       batchNumber,
-      finalRawResponse: fullResponse,
+      finalRawResponse: displayResponse,
       isComplete: true,
       timestamp: new Date().toLocaleTimeString("en-US", {
         hour: "numeric",
