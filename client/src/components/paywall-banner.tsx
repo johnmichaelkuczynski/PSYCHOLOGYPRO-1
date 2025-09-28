@@ -20,7 +20,7 @@ interface PaywallBannerProps {
   onDismiss?: () => void;
   showDismiss?: boolean;
   analysisType?: string;
-  variant?: "overlay" | "inline" | "minimal";
+  variant?: "minimal" | "inline";
 }
 
 export default function PaywallBanner({ 
@@ -28,7 +28,7 @@ export default function PaywallBanner({
   onDismiss, 
   showDismiss = false,
   analysisType = "analysis",
-  variant = "overlay"
+  variant = "minimal"
 }: PaywallBannerProps) {
   const [isDismissed, setIsDismissed] = useState(false);
   const { isAuthenticated, credits } = useUserCredits();
@@ -40,31 +40,24 @@ export default function PaywallBanner({
 
   if (isDismissed) return null;
 
-  const features = [
-    "Complete analysis results",
-    "Advanced scoring insights", 
-    "Unlimited downloads",
-    "Analysis history & saving"
-  ];
-
-  // Minimal variant for small spaces
+  // Minimal variant - small, subtle banner
   if (variant === "minimal") {
     return (
       <div className={cn(
-        "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4",
+        "bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3",
         className
       )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
-              <Crown className="h-5 w-5 text-yellow-500" />
+              <Crown className="h-4 w-4 text-yellow-500" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 Unlock Full Results
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                See complete {analysisType} results
+                See complete live analysis results
               </p>
             </div>
           </div>
@@ -78,120 +71,36 @@ export default function PaywallBanner({
     );
   }
 
-  // Inline variant for integration within content
-  if (variant === "inline") {
-    return (
-      <Card className={cn("border-2 border-dashed border-yellow-300 dark:border-yellow-600 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950", className)}>
-        <CardContent className="p-6">
-          <div className="text-center">
-            <Lock className="h-8 w-8 text-yellow-600 dark:text-yellow-400 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Continue Reading With Full Access
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              You've seen 30% of the results. {isAuthenticated ? "Purchase credits" : "Register and get credits"} to unlock the complete {analysisType}.
-            </p>
-            <div className="flex justify-center space-x-3">
-              {!isAuthenticated && (
-                <Link href="/credits">
-                  <Button variant="outline" size="sm" data-testid="button-register-inline">
-                    <Users className="h-4 w-4 mr-2" />
-                    Register Free
-                  </Button>
-                </Link>
-              )}
-              <Link href="/credits">
-                <Button size="sm" data-testid="button-upgrade-inline">
-                  <Crown className="h-4 w-4 mr-2" />
-                  {isAuthenticated ? "Buy Credits" : "Get Started"}
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Default overlay variant - full featured banner
+  // Inline variant for between content sections
   return (
-    <div className={cn(
-      "relative bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-950 dark:via-purple-950 dark:to-pink-950 border-2 border-blue-200 dark:border-blue-700 rounded-xl shadow-lg",
-      className
-    )}>
-      {showDismiss && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleDismiss}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          data-testid="button-dismiss-paywall"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      )}
-      
-      <div className="p-6">
-        <div className="flex items-start space-x-4">
-          <div className="flex-shrink-0">
-            <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
-              <Crown className="h-6 w-6 text-white" />
-            </div>
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-2 mb-2">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                Unlock Complete Analysis
-              </h3>
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                Preview Mode
-              </Badge>
-            </div>
-            
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              You're seeing 30% of the results. {isAuthenticated 
-                ? `You have ${credits.toLocaleString()} credits. Get more to unlock the full ${analysisType} with detailed insights.`
-                : `Register for free and purchase credits to see the complete ${analysisType} with detailed scoring and insights.`
-              }
-            </p>
-            
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              {features.map((feature, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">{feature}</span>
-                </div>
-              ))}
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              {!isAuthenticated && (
-                <Link href="/credits">
-                  <Button variant="outline" className="flex-1 sm:flex-none" data-testid="button-register-overlay">
-                    <Users className="h-4 w-4 mr-2" />
-                    Register Free
-                  </Button>
-                </Link>
-              )}
-              
+    <Card className={cn("border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950", className)}>
+      <CardContent className="p-4">
+        <div className="text-center">
+          <Lock className="h-5 w-5 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">
+            Continue Reading
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            You've seen 30% of the results. {isAuthenticated ? "Purchase credits" : "Register and get credits"} to unlock the complete {analysisType}.
+          </p>
+          <div className="flex justify-center space-x-2">
+            {!isAuthenticated && (
               <Link href="/credits">
-                <Button className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" data-testid="button-upgrade-overlay">
-                  <Zap className="h-4 w-4 mr-2" />
-                  {isAuthenticated ? "Buy Credits" : "Get Full Access"}
-                  <ArrowRight className="h-4 w-4 ml-2" />
+                <Button variant="outline" size="sm" data-testid="button-register-inline">
+                  <Users className="h-3 w-3 mr-1" />
+                  Register Free
                 </Button>
               </Link>
-            </div>
-            
-            {isAuthenticated && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                💡 Your analysis will be waiting for you after purchase - no need to re-generate!
-              </p>
             )}
+            <Link href="/credits">
+              <Button size="sm" data-testid="button-upgrade-inline">
+                <Crown className="h-3 w-3 mr-1" />
+                {isAuthenticated ? "Buy Credits" : "Get Started"}
+              </Button>
+            </Link>
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

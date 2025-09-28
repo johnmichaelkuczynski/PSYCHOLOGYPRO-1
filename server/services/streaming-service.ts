@@ -557,19 +557,19 @@ export class StreamingService {
   // Shared batch processing logic
   private async processBatches(analysis: Analysis, batches: string[][]): Promise<void> {
     for (let i = 0; i < batches.length; i++) {
-      const currentStream = this.activeStreams.get(analysis.id);
-      if (!currentStream || !currentStream.isActive) {
-        return;
+      // Continue processing without checking stream status for background analysis
+      if (!this.activeStreams.has(analysis.id)) {
+        this.activeStreams.set(analysis.id, {
+          callbacks: new Set(),
+          isActive: true
+        });
       }
 
       const batch = batches[i];
       const batchNumber = i + 1;
       await this.processBatch(analysis, batch, batchNumber);
 
-      const delayStream = this.activeStreams.get(analysis.id);
-      if (!delayStream || !delayStream.isActive) {
-        return;
-      }
+      // Continue with delay processing regardless of stream status
 
       if (i < batches.length - 1) {
         await this.streamDelay(analysis.id, 10000);
@@ -582,9 +582,12 @@ export class StreamingService {
     const batchResults: string[] = [];
     
     for (let i = 0; i < batches.length; i++) {
-      const currentStream = this.activeStreams.get(analysis.id);
-      if (!currentStream || !currentStream.isActive) {
-        throw new Error("Analysis stopped by user");
+      // Ensure stream exists for processing - create if missing
+      if (!this.activeStreams.has(analysis.id)) {
+        this.activeStreams.set(analysis.id, {
+          callbacks: new Set(),
+          isActive: true
+        });
       }
 
       const batch = batches[i];
@@ -592,10 +595,7 @@ export class StreamingService {
       const batchResponse = await this.processBatch(analysis, batch, batchNumber, hasFullAccess);
       batchResults.push(batchResponse);
 
-      const delayStream = this.activeStreams.get(analysis.id);
-      if (!delayStream || !delayStream.isActive) {
-        throw new Error("Analysis stopped by user");
-      }
+      // Continue processing - stream may not have active listeners but analysis should complete
 
       if (i < batches.length - 1) {
         await this.streamDelay(analysis.id, 10000);
@@ -676,20 +676,22 @@ export class StreamingService {
     const batchResults: string[] = [];
     
     for (let i = 0; i < batches.length; i++) {
-      const currentStream = this.activeStreams.get(analysis.id);
-      if (!currentStream || !currentStream.isActive) {
-        throw new Error("Analysis stopped by user");
+      // Ensure stream exists and is active - don't fail if stream not active
+      if (!this.activeStreams.has(analysis.id)) {
+        this.activeStreams.set(analysis.id, {
+          callbacks: new Set(),
+          isActive: true
+        });
       }
+      
+      // Always continue processing regardless of stream status for background analysis
 
       const batch = batches[i];
       const batchNumber = i + 1;
       const batchResponse = await this.processMicroBatch(analysis, batch, batchNumber, microType, hasFullAccess);
       batchResults.push(batchResponse);
 
-      const delayStream = this.activeStreams.get(analysis.id);
-      if (!delayStream || !delayStream.isActive) {
-        throw new Error("Analysis stopped by user");
-      }
+      // Continue processing - stream may not have active listeners but analysis should complete
 
       if (i < batches.length - 1) {
         await this.streamDelay(analysis.id, 10000);
