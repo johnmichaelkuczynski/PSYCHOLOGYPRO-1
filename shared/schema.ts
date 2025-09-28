@@ -44,6 +44,19 @@ export const transactions = pgTable("transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const pendingCredits = pgTable("pending_credits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id").notNull().unique(),
+  amount: integer("amount").notNull(), // Amount in dollars
+  credits: integer("credits").notNull(), // Credits to be granted
+  llmProvider: varchar("llm_provider").notNull(), // 'zhi1', 'zhi2', etc.
+  email: varchar("email"), // Email provided during checkout (optional)
+  claimToken: varchar("claim_token").notNull().unique(), // Secure token for claiming
+  claimed: boolean("claimed").notNull().default(false), // Whether credits have been claimed
+  claimedByUserId: integer("claimed_by_user_id").references(() => users.id, { onDelete: "set null" }), // User who claimed the credits
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users, {
   username: z.string().min(1),
   password: z.string().min(6),
@@ -73,6 +86,15 @@ export const insertTransactionSchema = createInsertSchema(transactions).pick({
   stripePaymentIntentId: true,
 });
 
+export const insertPendingCreditSchema = createInsertSchema(pendingCredits).pick({
+  stripePaymentIntentId: true,
+  amount: true,
+  credits: true,
+  llmProvider: true,
+  email: true,
+  claimToken: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
@@ -81,6 +103,8 @@ export type InsertDiscussion = z.infer<typeof insertDiscussionSchema>;
 export type Discussion = typeof discussions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
+export type InsertPendingCredit = z.infer<typeof insertPendingCreditSchema>;
+export type PendingCredit = typeof pendingCredits.$inferSelect;
 
 export const LLMProvider = z.enum(["zhi1", "zhi2", "zhi3", "zhi4"]);
 export const AnalysisType = z.enum([
