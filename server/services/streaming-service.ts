@@ -19,15 +19,35 @@ export class StreamingService {
     private storage: IStorage
   ) {}
 
-  // Server-side content truncation for freemium users
+  // Server-side content truncation for freemium users - uses character count for better preview
   private truncateToPercentage(text: string, percentage: number): string {
     if (percentage >= 100) return text;
     
-    const words = text.split(/\s+/);
-    const targetLength = Math.floor(words.length * (percentage / 100));
-    const truncated = words.slice(0, Math.max(1, targetLength)).join(' ');
+    const targetLength = Math.floor(text.length * (percentage / 100));
     
-    return truncated + (truncated.length < text.length ? '...' : '');
+    // Try to find a natural breaking point near the target
+    let cutPoint = targetLength;
+    
+    // Look for sentence endings near the target point
+    const sentenceEndings = ['. ', '.\n', '! ', '!\n', '? ', '?\n'];
+    for (let i = targetLength; i >= Math.max(0, targetLength - 100); i--) {
+      for (const ending of sentenceEndings) {
+        if (text.substring(i, i + ending.length) === ending) {
+          cutPoint = i + ending.length;
+          break;
+        }
+      }
+      if (cutPoint !== targetLength) break;
+    }
+    
+    // If no good breaking point found, just cut at word boundary
+    if (cutPoint === targetLength) {
+      while (cutPoint > 0 && text[cutPoint] !== ' ') {
+        cutPoint--;
+      }
+    }
+    
+    return text.substring(0, cutPoint).trim() + (cutPoint < text.length ? '...' : '');
   }
 
   async startAnalysis(analysisId: string): Promise<void> {
