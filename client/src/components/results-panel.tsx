@@ -219,7 +219,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
         setIsStopped(true);
       }
     }
-  }, [streamData, analysisId, fullAnalysisResults, analysisMetadata]);
+  }, [streamData, analysisId]);
 
   const getScoreVariant = (score: number) => {
     if (score >= 80) return "high";
