@@ -172,53 +172,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // TESTING: Simple in-memory credit simulation for verification 
-  const sessionCredits = new Map<string, number>();
-  
-  app.post("/api/simulate-payment", async (req, res) => {
-    console.log("=== SIMULATE PAYMENT REQUEST ===");
-    console.log("Request body:", req.body);
-    
-    try {
-      const { amount, credits } = req.body;
-      const creditsToAdd = credits || 100; // Default 100 credits
-      
-      console.log("Simulating payment - adding", creditsToAdd, "credits");
-      
-      // Get current session ID for anonymous users
-      const sessionId = req.sessionID;
-      console.log("Session ID:", sessionId);
-      
-      // Add credits to user (anonymous or logged in)
-      if (req.user) {
-        // Logged in user
-        console.log("Adding credits to logged in user:", req.user.id);
-        const user = await storage.getUserById(req.user.id);
-        if (user) {
-          const newCredits = (user.credits || 0) + creditsToAdd;
-          await storage.updateUserCredits(req.user.id, newCredits);
-          console.log(`User credits updated: ${user.credits || 0} + ${creditsToAdd} = ${newCredits}`);
-        }
-      } else {
-        // Anonymous user - use simple in-memory credits for testing
-        console.log("Adding credits to anonymous session:", sessionId);
-        const currentCredits = sessionCredits.get(sessionId) || 0;
-        const newCredits = currentCredits + creditsToAdd;
-        sessionCredits.set(sessionId, newCredits);
-        console.log(`Anonymous credits updated: ${currentCredits} + ${creditsToAdd} = ${newCredits}`);
-      }
-      
-      res.json({ 
-        success: true, 
-        creditsAdded: creditsToAdd,
-        sessionId: sessionId,
-        message: "Payment simulation successful" 
-      });
-    } catch (error: any) {
-      console.error("Simulate payment error:", error);
-      res.status(500).json({ error: "Error simulating payment: " + error.message });
-    }
-  });
 
   app.get("/api/me", async (req, res) => {
     if (req.user) {
@@ -590,20 +543,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user credits - supports both authenticated and anonymous users (with in-memory testing)
+  // Get user credits - supports both authenticated and anonymous users
   app.get("/api/user/credits", async (req, res) => {
     try {
       if (!req.user) {
-        // For anonymous users, first check in-memory session credits (for testing)
-        const sessionId = req.sessionID;
-        const sessionCreditsAmount = sessionCredits.get(sessionId) || 0;
-        
-        if (sessionCreditsAmount > 0) {
-          console.log(`Found ${sessionCreditsAmount} session credits for anonymous user:`, sessionId);
-          return res.json({ credits: sessionCreditsAmount, isAnonymous: true });
-        }
-        
-        // Fallback to checking pending credits via claim token
+        // For anonymous users, check if they have pending credits via claim token
         const claimToken = req.headers['x-claim-token'] as string;
         if (claimToken) {
           const pendingCredit = await storage.getPendingCreditByToken(claimToken);
