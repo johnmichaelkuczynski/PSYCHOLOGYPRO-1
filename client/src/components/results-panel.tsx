@@ -338,7 +338,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
               </div>
               <div className="text-sm text-gray-700 leading-relaxed">
                 <div className={`streaming-text ${summary ? 'complete' : ''} transition-all duration-500 ease-in-out`}>
-                  {canAccessFullResults ? summary : truncateToPercentage(summary, displayPercentage)}
+                  {summary}
                 </div>
                 {!canAccessFullResults && summary && (
                   <div className="mt-4 transition-all duration-500 ease-in-out">
@@ -365,7 +365,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
               <div className="question-card">
                 <div className="text-sm text-gray-700 leading-relaxed">
                   <div className="streaming-text font-mono whitespace-pre-wrap">
-                    {canAccessFullResults ? content : truncateToPercentage(content, displayPercentage)}
+                    {content}
                   </div>
                   {!canAccessFullResults && content && (
                     <div className="mt-4">
@@ -404,7 +404,7 @@ export default function ResultsPanel({ analysisId, onDiscussionToggle, onNewAnal
                           <p className="text-sm font-medium text-gray-900 mb-2">{q.question}</p>
                           <div className="text-sm text-gray-700 leading-relaxed">
                             <div className={`streaming-text ${q.isComplete ? 'complete' : ''} transition-all duration-500 ease-in-out`}>
-                              {canAccessFullResults ? q.response : truncateToPercentage(q.response, displayPercentage)}
+                              {q.response}
                             </div>
                             {!canAccessFullResults && q.response && (
                               <div className="mt-4 transition-all duration-500 ease-in-out">
