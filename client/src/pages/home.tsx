@@ -21,7 +21,7 @@ export default function Home() {
   const [selectedFunction, setSelectedFunction] = useState<AnalysisTypeType>("cognitive");
   const [selectedLLM, setSelectedLLM] = useState<LLMProviderType>("zhi1");
   const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
-  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>("2df3bf32-8f9a-4d68-8d84-388ce8d6aad9"); // TEMP: Testing payment flow
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState(0);
   const [showSavedAnalyses, setShowSavedAnalyses] = useState(false);
   const [showUserHistory, setShowUserHistory] = useState(false);
@@ -352,12 +352,6 @@ export default function Home() {
                   onNewAnalysis={handleNewAnalysis}
                 />
                 
-                {/* TEMP DEBUG: Show current analysis ID */}
-                {currentAnalysisId && (
-                  <div style={{position: 'fixed', top: '10px', right: '10px', background: 'red', color: 'white', padding: '5px', zIndex: 1000}}>
-                    Analysis ID: {currentAnalysisId.slice(0, 8)}...
-                  </div>
-                )}
               </div>
             </div>
           </div>
