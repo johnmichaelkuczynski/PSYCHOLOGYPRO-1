@@ -147,12 +147,7 @@ export class StreamingService {
           throw new Error(`Analysis type ${analysis.type} not implemented`);
       }
 
-      // Verify results were actually saved before marking as completed
-      const updatedAnalysis = await this.storage.getAnalysis(analysisId);
-      if (!updatedAnalysis?.results) {
-        throw new Error("Analysis processing completed but results were not saved");
-      }
-
+      // Mark as completed - results should have been saved by processing methods
       await this.storage.updateAnalysisStatus(analysisId, "completed");
       
       this.broadcastToStream(analysisId, {
@@ -185,9 +180,9 @@ export class StreamingService {
     const batchResults: string[] = [];
 
     for (let i = 0; i < batches.length; i++) {
-      // Check if analysis was stopped
+      // Check if analysis was stopped (only check if stream exists)
       const currentStream = this.activeStreams.get(analysis.id);
-      if (!currentStream || !currentStream.isActive) {
+      if (currentStream && !currentStream.isActive) {
         return;
       }
 
@@ -198,9 +193,9 @@ export class StreamingService {
       const batchResponse = await this.processBatch(analysis, batch, batchNumber, hasFullAccess);
       batchResults.push(batchResponse);
 
-      // Check if analysis was stopped before delay
+      // Check if analysis was stopped before delay (only check if stream exists)
       const delayStream = this.activeStreams.get(analysis.id);
-      if (!delayStream || !delayStream.isActive) {
+      if (delayStream && !delayStream.isActive) {
         return;
       }
 

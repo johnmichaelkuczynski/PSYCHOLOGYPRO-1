@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { 
   Crown, 
   Zap, 
@@ -12,8 +12,8 @@ import {
   Lock,
   X
 } from "lucide-react";
-import { useUserCredits } from "@/utils/user-credits";
-import { cn } from "@/lib/utils";
+import { useUserCredits } from "../utils/user-credits";
+import { cn } from "../lib/utils";
 
 interface PaywallBannerProps {
   className?: string;
