@@ -542,15 +542,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user credits
+  // Get user credits - supports both authenticated and anonymous users
   app.get("/api/user/credits", async (req, res) => {
     try {
       if (!req.user) {
-        return res.status(401).json({ error: "Authentication required" });
+        // For anonymous users, check if they have pending credits via claim token
+        const claimToken = req.headers['x-claim-token'] as string;
+        if (claimToken) {
+          const pendingCredit = await storage.getPendingCreditByToken(claimToken);
+          if (pendingCredit && !pendingCredit.claimed) {
+            // Return the pending credits as available
+            return res.json({ credits: pendingCredit.credits, isAnonymous: true });
+          }
+        }
+        // No auth and no valid claim token
+        return res.json({ credits: 0, isAnonymous: true });
       }
       
       const user = await storage.getUserById(req.user.id);
-      res.json({ credits: user?.credits || 0 });
+      res.json({ credits: user?.credits || 0, isAnonymous: false });
     } catch (error) {
       console.error("Get credits error:", error);
       res.status(500).json({ error: "Failed to get credits" });
@@ -569,6 +579,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get transactions error:", error);
       res.status(500).json({ error: "Failed to get transactions" });
+    }
+  });
+
+  // Anonymous credit claiming - allows automatic claiming after payment
+  app.post("/api/claim-anonymous-credits", async (req, res) => {
+    try {
+      const { paymentIntentId } = req.body;
+      
+      if (!paymentIntentId) {
+        return res.status(400).json({ error: "Payment intent ID is required" });
+      }
+      
+      // Find pending credits for this payment intent
+      const pendingCredits = await storage.getPendingCreditsByPaymentIntent(paymentIntentId);
+      
+      if (pendingCredits.length === 0) {
+        return res.status(404).json({ error: "No pending credits found for this payment" });
+      }
+      
+      const pendingCredit = pendingCredits[0]; // Should only be one
+      
+      if (pendingCredit.claimed) {
+        return res.status(400).json({ error: "Credits already claimed" });
+      }
+      
+      // Return the claim token for anonymous access
+      res.json({ 
+        claimToken: pendingCredit.claimToken,
+        credits: pendingCredit.credits,
+        message: `${pendingCredit.credits} credits are now available!`
+      });
+    } catch (error: any) {
+      console.error('Anonymous credit claiming error:', error);
+      res.status(500).json({ error: 'Failed to claim anonymous credits' });
     }
   });
 

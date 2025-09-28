@@ -5,6 +5,7 @@ export interface UserCreditsInfo {
   isAuthenticated: boolean;
   hasUnlimitedCredits: boolean;
   canAccessFullResults: boolean;
+  isAnonymous?: boolean;
 }
 
 // Hook to get current user authentication and credit status
@@ -14,10 +15,25 @@ export function useUserCredits(): UserCreditsInfo {
     retry: false,
   });
 
-  const { data: creditsData } = useQuery<{ credits: number }>({
+  // Get claim token from localStorage for anonymous purchases
+  const claimToken = typeof window !== 'undefined' ? localStorage.getItem('claimToken') : null;
+
+  const { data: creditsData } = useQuery<{ credits: number; isAnonymous?: boolean }>({
     queryKey: ["/api/user/credits"],
-    enabled: !!user, // Only fetch if user is authenticated
     retry: false,
+    // Always try to fetch credits, passing claim token if available
+    queryFn: async () => {
+      const headers: Record<string, string> = {};
+      if (claimToken) {
+        headers['x-claim-token'] = claimToken;
+      }
+      
+      const response = await fetch('/api/user/credits', { headers });
+      if (!response.ok) {
+        throw new Error('Failed to fetch credits');
+      }
+      return response.json();
+    },
   });
 
   const isAuthenticated = !!user;

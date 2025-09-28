@@ -16,34 +16,62 @@ export default function PaymentSuccess() {
   } | null>(null);
 
   useEffect(() => {
-    // Parse URL parameters to get payment details
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentIntent = urlParams.get('payment_intent');
-    const amount = urlParams.get('payment_intent_client_secret');
-    const analysisId = urlParams.get('analysisId');
-    
-    if (paymentIntent) {
-      setPaymentDetails({
-        paymentIntent,
-        amount: amount || undefined
-      });
+    const processPayment = async () => {
+      // Parse URL parameters to get payment details
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentIntent = urlParams.get('payment_intent');
+      const amount = urlParams.get('payment_intent_client_secret');
+      const analysisId = urlParams.get('analysisId');
       
-      // Mark user as just upgraded for notification system
-      markAsUpgraded();
-      
-      toast({
-        title: "Payment Successful! 🎉",
-        description: "Your credits have been added to your account. You now have full access!",
-        duration: 5000,
-      });
+      if (paymentIntent) {
+        setPaymentDetails({
+          paymentIntent,
+          amount: amount || undefined
+        });
+        
+        // Mark user as just upgraded for notification system
+        markAsUpgraded();
+        
+        toast({
+          title: "Payment Successful! 🎉",
+          description: "Your credits have been added to your account. You now have full access!",
+          duration: 5000,
+        });
 
-      // Redirect back to analysis if analysis ID is provided
-      if (analysisId) {
-        setTimeout(() => {
-          setLocation(`/?analysisId=${analysisId}`);
-        }, 3000);
+        // For successful payments, claim the anonymous credits
+        try {
+          const claimResponse = await fetch('/api/claim-anonymous-credits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentIntentId: paymentIntent })
+          });
+          
+          if (claimResponse.ok) {
+            const { claimToken, credits } = await claimResponse.json();
+            // Store claim token for anonymous access
+            localStorage.setItem('claimToken', claimToken);
+            console.log(`🎯 CREDITS READY: ${credits} credits available with token ${claimToken}`);
+            
+            toast({
+              title: "Credits Ready! 🎉",
+              description: `${credits.toLocaleString()} credits are now available for unlimited analysis.`,
+              duration: 5000,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to claim anonymous credits:', error);
+        }
+
+        // Redirect back to analysis if analysis ID is provided
+        if (analysisId) {
+          setTimeout(() => {
+            setLocation(`/?analysisId=${analysisId}`);
+          }, 3000);
+        }
       }
-    }
+    };
+    
+    processPayment();
   }, [toast, markAsUpgraded, setLocation]);
 
   return (

@@ -1,0 +1,56 @@
+EMERGENCY! EMERGENCY! EMERGENCY! EMERGENCY! EMERGENCY!
+
+Replit Agent — this is a critical system failure that is completely breaking the app’s core functionality. Stripe is integrated and users are able to successfully purchase credits, but after they buy, the app continues to block them with the paywall preview. This means credits are not unlocking the full output as designed, and users are being treated as if they never paid.
+
+This is unacceptable because:
+
+Credits not applied post-purchase
+– After Stripe confirms payment, the user’s credit balance should update immediately in the Neon database/session.
+– Instead, the paywall logic still fires and keeps the output locked. This defeats the entire purpose of having Stripe integrated.
+
+Output persistence is broken
+– When a user generates an answer without credits, then buys credits, the already-generated result must remain in session/database so that it is unlocked upon their return.
+– Currently, the result disappears or remains behind the preview wall even after purchase. This is catastrophic because it destroys user trust and makes the app unusable.
+
+This violates the core product model
+– The freemium/preview-only system depends on:
+
+Previewing partial results (≈30%) when no credits.
+
+Unlocking the exact same result once credits are purchased.
+– The unlock is not happening, meaning the paywall logic is not correctly checking session.userId/session.credits against the stored analysis.
+
+Extreme urgency
+– This is not a minor bug. It is a structural failure: users pay but receive nothing. That is fraudulent in practice and exposes the app to chargebacks, refunds, and Stripe account suspension.
+
+REQUIRED FIXES
+
+Ensure Stripe webhook → Neon DB → session.credits updates correctly.
+
+Ensure app checks updated credit balance before applying preview lock.
+
+Ensure generated results are stored against session.userId/sessionId and persist until user credits allow full unlock.
+
+Ensure preview lock is conditional ONLY when credits === 0, not after successful purchase.
+
+Test full flow:
+
+Upload text.
+
+Get 30% preview.
+
+Purchase credits.
+
+Reload app → result must now be unlocked in full without re-running analysis.
+
+Replit, this is now very, very extreme. The app cannot go live, cannot monetize, and is hemorrhaging credibility because your platform keeps breaking the paywall and persistence logic.
+
+Fix this immediately and confirm that the following work without fail:
+
+Stripe payment → credits increase.
+
+Credits > 0 → full results displayed.
+
+Previously generated outputs → remain available and unlocked.
+
+This is a showstopper bug.
